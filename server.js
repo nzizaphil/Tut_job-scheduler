@@ -11,7 +11,7 @@ const PORT = 3000;
 app.use(cors());
 app.get('/', (req, res) => {
     const cwd = path.join(__dirname, 'backend');
-    const PY = process.platform === 'win32' ? 'python' : 'python'; // change to 'python3' if needed
+    const PY = 'python3';
     exec(`${PY} app.py`, { cwd }, (error, stdout, stderr) => {
         if (error) return res.status(500).send('Error running Python script');
         res.type('text/plain').send(stdout.trim());

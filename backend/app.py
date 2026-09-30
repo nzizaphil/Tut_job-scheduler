@@ -8,6 +8,8 @@ import json
 
 import os
 
+import time
+
 from itertools import groupby
 
 # ACTIVITY 4: app.py no longer imports EmailJob, DataProcessingJob, etc.
@@ -60,11 +62,15 @@ if __name__ == "__main__":
     # ACTIVITY 2: run jobs in priority "waves". Jobs in the same priority level
     # run concurrently, but a lower-priority wave only starts once the
     # higher-priority wave has finished.
+    wall_start = time.perf_counter()  # ACTIVITY 5: total real time for the whole run
+
     for priority, group in groupby(jobs, key=by_priority):
 
         print(f"\n--- Priority {priority} jobs ---")
 
         Executor(list(group), manager).run()
+
+    wall_time = time.perf_counter() - wall_start
 
 
     print("\n=== SUMMARY ===")
@@ -75,6 +81,26 @@ if __name__ == "__main__":
 
     # FIX (app.py): added 'failed' count to summary so failures are visible.
     print(f"Failed:    {len(manager.get_jobs_by_status('failed'))}")
+
+
+    # ACTIVITY 5: timing report.
+    print("\n=== TIMING ===")
+
+    for job in sorted(jobs, key=lambda j: j.job_id):
+
+        print(f"Job {job.job_id}: {job.duration:.2f}s ({job.status})")
+
+    total_job_time = sum(job.duration for job in jobs)
+
+    slowest = max(jobs, key=lambda j: j.duration)
+
+    print(f"Average job time:   {total_job_time / len(jobs):.2f}s")
+
+    print(f"Slowest job:        {slowest.job_id} ({slowest.duration:.2f}s)")
+
+    print(f"Sum of job times:   {total_job_time:.2f}s")
+
+    print(f"Actual wall time:   {wall_time:.2f}s  <- less than the sum thanks to threads")
 
 
     # ACTIVITY 3: read each job's private log through its public method.
