@@ -4,33 +4,32 @@ Build a few jobs, register them, run them, print a summary.
 """
 
 
-from models import EmailJob, DataProcessingJob, PriorityJob
+import json
+
+import os
+
+from itertools import groupby
+
+# ACTIVITY 4: app.py no longer imports EmailJob, DataProcessingJob, etc.
+# It only talks to the factory, so it's decoupled from the concrete classes.
+from factory import JobFactory
 
 from task_manager import TaskManager
 
 from executor import Executor
 
-from itertools import groupby
+
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jobs.json")
 
 
 def build_jobs():
 
-    return [
+    # ACTIVITY 4: job definitions now come from a config file, not hardcoded classes.
+    with open(CONFIG_PATH) as f:
 
-        EmailJob(1, "user@example.com"),
+        configs = json.load(f)
 
-        DataProcessingJob(2, "dataset_A"),
-
-        EmailJob(3, "admin@example.com"),
-
-        DataProcessingJob(4, "dataset_B"),
-
-        # ACTIVITY 2: priority jobs (1 = highest, 5 = lowest)
-        PriorityJob(5, "Critical security alert", priority=1),
-
-        PriorityJob(6, "Nightly log cleanup", priority=5),
-
-    ]
+    return JobFactory.from_config(configs)
 
 
 # ACTIVITY 2: jobs without a priority attribute are treated as normal (3).
