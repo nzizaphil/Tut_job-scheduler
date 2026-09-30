@@ -32,7 +32,7 @@ class Job:
 
     def __repr__(self) -> str:
 
-        return f"<Job id={self.job_id} status={self.status}desc='{self.description}'>"
+        return f"<Job id={self.job_id} status={self.status} desc='{self.description}'>"
 
 
 
@@ -77,3 +77,30 @@ class DataProcessingJob(Job):
         print(f"Processing dataset {self.dataset}...")
 
         # FIX (models.py): removed self.mark_done() here — same reason as EmailJob above.
+
+
+
+# ACTIVITY 2: PriorityJob — extends Job WITHOUT modifying the base class.
+class PriorityJob(Job):
+
+    """Child class: a job with a priority level (1 = highest, 5 = lowest)."""
+
+    def __init__(self, job_id: int, description: str, priority: int = 3) -> None:
+
+        super().__init__(job_id, description)
+
+        if not 1 <= priority <= 5:
+
+            raise ValueError("priority must be between 1 (highest) and 5 (lowest)")
+
+        self.priority = priority
+
+
+    def execute(self) -> None:
+
+        print(f"[PRIORITY {self.priority}] Handling {self.description}...")
+
+
+    def __repr__(self) -> str:
+
+        return f"<PriorityJob id={self.job_id} priority={self.priority} status={self.status}>"
