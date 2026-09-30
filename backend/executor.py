@@ -44,6 +44,8 @@ class Executor:
 
             print(f"[{self._ts()}] Executing job {job.job_id} ({job.description})...")
 
+            job.log("Execution started")  # ACTIVITY 3
+
             time.sleep(random.uniform(1, 3))
 
             if random.random() < 0.2:  # ~20% simulated failure
@@ -63,6 +65,8 @@ class Executor:
 
             # FIX (executor.py): mark failed jobs in manager so they appear
             # in the summary under "failed" instead of staying as "pending".
+            job.log(f"Error: {e}")  # ACTIVITY 3
+
             self.manager.update_status(job, "failed")
 
             print(f"[{self._ts()}] Error in job {e.job_id}: {e}")

@@ -76,3 +76,15 @@ if __name__ == "__main__":
 
     # FIX (app.py): added 'failed' count to summary so failures are visible.
     print(f"Failed:    {len(manager.get_jobs_by_status('failed'))}")
+
+
+    # ACTIVITY 3: read each job's private log through its public method.
+    print("\n=== JOB LOGS ===")
+
+    for job in sorted(jobs, key=lambda j: j.job_id):
+
+        print(f"Job {job.job_id} ({job.status}):")
+
+        for entry in job.get_logs():
+
+            print(f"  {entry}")
