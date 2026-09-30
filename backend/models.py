@@ -3,15 +3,19 @@ models.py
 Defines the Job hierarchy (parent + child classes).
 Polymorphism: each subclass implements its own execute().
 Encapsulation (Activity 3): status and logs are private, accessed via methods.
+Abstraction (Activity 4): Job is an abstract base class; it can't be created directly.
 """
 
+
+from abc import ABC, abstractmethod
 
 from datetime import datetime
 
 from typing import List
 
 
-class Job:
+# ACTIVITY 4: inheriting from ABC makes Job abstract.
+class Job(ABC):
 
     """Parent/base class shared by all job types."""
 
@@ -76,11 +80,12 @@ class Job:
     # -------------------------------------------------------------------
 
 
+    # ACTIVITY 4: @abstractmethod forces every subclass to implement execute().
+    # Python now refuses to create Job(...) or any subclass that forgets it.
+    @abstractmethod
     def execute(self) -> None:
 
-        """Must be overridden by subclasses."""
-
-        raise NotImplementedError("Each job must implement its own execution logic.")
+        """Each job type defines its own execution logic."""
 
 
     def mark_done(self) -> None:
