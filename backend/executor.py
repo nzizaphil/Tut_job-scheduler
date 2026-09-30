@@ -46,6 +46,11 @@ class Executor:
 
             job.log("Execution started")  # ACTIVITY 3
 
+            # ACTIVITY 5: lifecycle begins — mark as running and start the timer.
+            self.manager.update_status(job, "running")
+
+            job.start()
+
             time.sleep(random.uniform(1, 3))
 
             if random.random() < 0.2:  # ~20% simulated failure
@@ -70,6 +75,12 @@ class Executor:
             self.manager.update_status(job, "failed")
 
             print(f"[{self._ts()}] Error in job {e.job_id}: {e}")
+
+        finally:
+
+            # ACTIVITY 5: 'finally' runs on success AND failure,
+            # so every job gets a duration — even the ones that fail.
+            job.end()
 
 
     def run(self) -> None:

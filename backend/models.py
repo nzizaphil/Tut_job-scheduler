@@ -4,14 +4,17 @@ Defines the Job hierarchy (parent + child classes).
 Polymorphism: each subclass implements its own execute().
 Encapsulation (Activity 3): status and logs are private, accessed via methods.
 Abstraction (Activity 4): Job is an abstract base class; it can't be created directly.
+Lifecycle (Activity 5): start() / end() record how long each job takes.
 """
 
 
 from abc import ABC, abstractmethod
 
+import time
+
 from datetime import datetime
 
-from typing import List
+from typing import List, Optional
 
 
 # ACTIVITY 4: inheriting from ABC makes Job abstract.
@@ -34,6 +37,11 @@ class Job(ABC):
         self.__status = "pending"
 
         self.__logs: List[str] = []
+
+        # ACTIVITY 5: private timing fields, filled in by start() / end().
+        self.__started_at: Optional[float] = None
+
+        self.__ended_at: Optional[float] = None
 
         self.log("Job created (status: pending)")
 
@@ -76,6 +84,44 @@ class Job(ABC):
         """Return a COPY, so callers can read logs but never modify the real list."""
 
         return list(self.__logs)
+
+
+    # ---------- ACTIVITY 5: lifecycle timing ----------
+
+    def start(self) -> None:
+
+        """Call when the job begins running."""
+
+        self.__started_at = time.perf_counter()  # monotonic clock, ideal for durations
+
+        self.__ended_at = None
+
+        self.log("Timer started")
+
+
+    def end(self) -> None:
+
+        """Call when the job finishes (success OR failure)."""
+
+        if self.__started_at is None:
+
+            raise RuntimeError(f"Job {self.job_id}: end() called before start()")
+
+        self.__ended_at = time.perf_counter()
+
+        self.log(f"Timer stopped after {self.duration:.2f}s")
+
+
+    @property
+    def duration(self) -> Optional[float]:
+
+        """Seconds between start() and end(), or None if the job hasn't finished."""
+
+        if self.__started_at is None or self.__ended_at is None:
+
+            return None
+
+        return self.__ended_at - self.__started_at
 
     # -------------------------------------------------------------------
 
