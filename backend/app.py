@@ -16,6 +16,10 @@ from itertools import groupby
 # It only talks to the factory, so it's decoupled from the concrete classes.
 from factory import JobFactory
 
+# ACTIVITY 6: importing this module registers the "retryable" job type
+# with the factory (plugin style) — factory.py itself didn't change.
+import retryable_job  # noqa: F401
+
 from task_manager import TaskManager
 
 from executor import Executor

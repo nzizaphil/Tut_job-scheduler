@@ -1,8 +1,9 @@
 [
-  { "type": "email",    "job_id": 1, "recipient": "user@example.com" },
-  { "type": "data",     "job_id": 2, "dataset": "dataset_A" },
-  { "type": "email",    "job_id": 3, "recipient": "admin@example.com" },
-  { "type": "data",     "job_id": 4, "dataset": "dataset_B" },
-  { "type": "priority", "job_id": 5, "description": "Critical security alert", "priority": 1 },
-  { "type": "priority", "job_id": 6, "description": "Nightly log cleanup", "priority": 5 }
+  { "type": "email",     "job_id": 1, "recipient": "user@example.com" },
+  { "type": "data",      "job_id": 2, "dataset": "dataset_A" },
+  { "type": "email",     "job_id": 3, "recipient": "admin@example.com" },
+  { "type": "data",      "job_id": 4, "dataset": "dataset_B" },
+  { "type": "priority",  "job_id": 5, "description": "Critical security alert", "priority": 1 },
+  { "type": "priority",  "job_id": 6, "description": "Nightly log cleanup", "priority": 5 },
+  { "type": "retryable", "job_id": 7, "description": "Sync with payment API", "max_retries": 3, "failure_rate": 0.5 }
 ]
