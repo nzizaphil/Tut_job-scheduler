@@ -1,0 +1,84 @@
+# ACTIVITY 7: CI/CD pipeline for the job scheduler.
+# CI: every push and pull request to main is tested automatically.
+# CD: every successful push to main is packaged as a downloadable release artifact.
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 1) Unit tests + run the scheduler, on two Python versions
+  python-tests:
+    name: Python tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: python3 -m pytest -v
+
+      - name: Smoke test - run the scheduler
+        working-directory: backend
+        run: python3 app.py
+
+  # 2) Start the Express API and check the endpoint really returns the scheduler output
+  node-api:
+    name: Node API smoke test
+    runs-on: ubuntu-latest
+    needs: python-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Start server and call the endpoint
+        run: |
+          node server.js &
+          sleep 2
+          curl --fail --silent --max-time 90 http://localhost:3000/ | tee response.txt
+          grep -q "=== SUMMARY ===" response.txt
+
+  # 3) CD: package a deployable build, only after everything passed on main
+  package:
+    name: Package backend (CD)
+    runs-on: ubuntu-latest
+    needs: [python-tests, node-api]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: job-scheduler-${{ github.sha }}
+          path: |
+            backend/
+            !backend/tests/
+            server.js
+            package.json
+            package-lock.json
+            requirements.txt
