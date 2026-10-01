@@ -36,6 +36,10 @@ jobs:
         working-directory: backend
         run: python3 app.py
 
+      - name: Smoke test - JSON output is valid (Activity 8)
+        working-directory: backend
+        run: python3 app.py --json | python3 -m json.tool > /dev/null
+
   # 2) Start the Express API and check the endpoint really returns the scheduler output
   node-api:
     name: Node API smoke test
@@ -62,6 +66,7 @@ jobs:
           sleep 2
           curl --fail --silent --max-time 90 http://localhost:3000/ | tee response.txt
           grep -q "=== SUMMARY ===" response.txt
+          curl --fail --silent --output /dev/null http://localhost:3000/dashboard/
 
   # 3) CD: package a deployable build, only after everything passed on main
   package:
@@ -79,6 +84,8 @@ jobs:
             backend/
             !backend/tests/
             server.js
+            db.js
+            public/
             package.json
             package-lock.json
             requirements.txt
