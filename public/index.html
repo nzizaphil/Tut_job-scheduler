@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job scheduler runs</title>
+  <!-- ACTIVITY 8: dashboard served by Express at /dashboard/, reads data from /api/runs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --surface: #ffffff;
+      --ink: #1c2433;
+      --muted: #5e6878;
+      --line: #d3d9e2;
+      --ok: #2f7d5b;
+      --fail: #b23a3a;
+      --accent: #3554c4;
+      --track: #e4e8ee;
+      --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151a23; --surface: #1d2430; --ink: #e6eaf0; --muted: #9aa4b4;
+        --line: #303a4a; --ok: #5fbf93; --fail: #e27575; --accent: #8ea4ff; --track: #263040;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 16px/1.5 var(--sans); font-variant-numeric: tabular-nums;
+    }
+    button { font: inherit; }
+    :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+    .top {
+      display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between;
+      padding: 1.25rem clamp(1rem, 4vw, 2.5rem); border-bottom: 1px solid var(--line);
+    }
+    .top h1 { margin: 0; font-size: 1.375rem; font-weight: 700; letter-spacing: -0.01em; }
+    .top p { margin: 0; color: var(--muted); font-size: 0.9375rem; }
+    .primary {
+      background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+      padding: 0.625rem 1.125rem; font-weight: 600; cursor: pointer;
+    }
+    .primary:disabled { opacity: 0.6; cursor: progress; }
+    @media (prefers-color-scheme: dark) { .primary { color: #10162a; } }
+
+    .notice { margin: 1rem clamp(1rem, 4vw, 2.5rem) 0; }
+    .notice:empty { display: none; }
+    .notice p {
+      margin: 0; padding: 0.75rem 1rem; border-radius: 6px;
+      border-left: 4px solid var(--fail); background: var(--surface);
+    }
+    .notice p.good { border-left-color: var(--ok); }
+
+    .layout {
+      display: grid; grid-template-columns: minmax(14rem, 18rem) 1fr; gap: 2rem;
+      padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem; align-items: start;
+    }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+
+    .history h2, .section-title { font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }
+    .history ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.375rem; }
+    .run {
+      width: 100%; text-align: left; cursor: pointer; display: grid; gap: 0.125rem;
+      background: transparent; color: inherit; border: 1px solid transparent; border-radius: 6px;
+      padding: 0.625rem 0.75rem;
+    }
+    .run:hover { border-color: var(--line); }
+    .run[aria-current="true"] { background: var(--surface); border-color: var(--line); }
+    .run strong { font-weight: 600; }
+    .run span { color: var(--muted); font-size: 0.875rem; }
+    .run .bad { color: var(--fail); }
+
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: clamp(1rem, 3vw, 1.75rem); }
+    .panel > header h2 { margin: 0; font-size: 1.25rem; }
+    .insight { margin: 0.375rem 0 0; max-width: 62ch; color: var(--muted); }
+    .insight b { color: var(--ink); font-weight: 600; }
+
+    /* The timeline: one row per job, bars placed by start time and length */
+    .timeline { margin: 1.75rem 0 2rem; }
+    .rows { display: grid; gap: 0.375rem; }
+    .row { display: grid; grid-template-columns: 7.5rem 1fr 3.75rem; gap: 0.75rem; align-items: center; }
+    .row .who { font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .who small { color: var(--muted); font-size: 0.8125rem; }
+    .row .dur { text-align: right; font-size: 0.875rem; color: var(--muted); }
+    .track { position: relative; height: 1.375rem; background: var(--track); border-radius: 3px; }
+    .wave-line { position: absolute; top: -0.2rem; bottom: -0.2rem; width: 0; border-left: 1px dashed var(--muted); opacity: 0.5; }
+    .bar {
+      position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--ok);
+      transform-origin: left; animation: grow 0.5s ease-out both;
+    }
+    .bar.failed { background: repeating-linear-gradient(135deg, var(--fail) 0 6px, color-mix(in srgb, var(--fail) 75%, var(--surface)) 6px 12px); }
+    .bar .retries {
+      position: absolute; left: 0.375rem; top: 50%; transform: translateY(-50%);
+      font-size: 0.75rem; font-weight: 600; color: #fff; white-space: nowrap;
+    }
+    @keyframes grow { from { transform: scaleX(0); } }
+    @media (prefers-reduced-motion: reduce) { .bar { animation: none; } }
+    .axis { display: grid; grid-template-columns: 7.5rem 1fr 3.75rem; gap: 0.75rem; margin-top: 0.375rem; }
+    .ticks { position: relative; height: 1.25rem; font-size: 0.75rem; color: var(--muted); }
+    .ticks span { position: absolute; transform: translateX(-50%); }
+    .legend { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.8125rem; color: var(--muted); }
+    .legend i { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 2px; vertical-align: -2px; margin-right: 0.375rem; }
+
+    /* Job list with expandable logs */
+    .jobs { display: grid; gap: 0.5rem; }
+    details { border: 1px solid var(--line); border-radius: 6px; }
+    summary {
+      cursor: pointer; padding: 0.625rem 0.875rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline;
+    }
+    summary .state { font-weight: 600; font-size: 0.875rem; }
+    summary .state.completed { color: var(--ok); }
+    summary .state.failed { color: var(--fail); }
+    summary .meta { color: var(--muted); font-size: 0.875rem; margin-left: auto; }
+    .log {
+      margin: 0; padding: 0.75rem 0.875rem 0.875rem 2.75rem; border-top: 1px solid var(--line);
+      font: 0.8125rem/1.6 var(--mono); overflow-x: auto;
+    }
+    .log li.err { color: var(--fail); }
+
+    .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty p { margin: 0 0 1rem; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Job scheduler runs</h1>
+      <p>Every run is saved to MongoDB with each job's status, timing and logs.</p>
+    </div>
+    <button class="primary" id="run-btn" type="button">Run scheduler</button>
+  </header>
+
+  <div class="notice" id="notice" role="status" aria-live="polite"></div>
+
+  <main class="layout">
+    <nav class="history" aria-label="Saved runs">
+      <h2>Saved runs</h2>
+      <ol id="run-list"></ol>
+    </nav>
+    <section class="panel" id="detail" aria-live="polite">
+      <p class="empty">Loading runs…</p>
+    </section>
+  </main>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const runList = $('#run-list');
+    const detail = $('#detail');
+    const runBtn = $('#run-btn');
+    const notice = $('#notice');
+    let selectedId = null;
+
+    // Escape text before putting it into HTML (logs and descriptions come from the database).
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const secs = (n) => `${Number(n).toFixed(1)} s`;
+    const when = (iso) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const retriesOf = (job) => job.logs.filter((l) => l.includes('Attempt')).length;
+
+    async function api(path, options) {
+      const res = await fetch(path, options);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Request failed with status ${res.status}`);
+      return body;
+    }
+
+    function showNotice(message, good = false) {
+      notice.innerHTML = message ? `<p class="${good ? 'good' : ''}">${esc(message)}</p>` : '';
+    }
+
+    function renderRunList(runs) {
+      runList.innerHTML = runs.map((r) => `
+        <li>
+          <button class="run" type="button" data-id="${r._id}" aria-current="${r._id === selectedId}">
+            <strong>${when(r.createdAt)}</strong>
+            <span>${r.summary.completed} completed${r.summary.failed ? `, <b class="bad">${r.summary.failed} failed</b>` : ''}</span>
+            <span>Finished in ${secs(r.wallTime)}</span>
+          </button>
+        </li>`).join('');
+    }
+
+    function renderTimeline(run) {
+      const total = Math.max(...run.jobs.map((j) => j.startOffset + j.duration), 1);
+      const pct = (s) => `${(s / total) * 100}%`;
+      const waves = [...new Set(run.jobs.map((j) => j.startOffset))];
+      const jobs = [...run.jobs].sort((a, b) => a.startOffset - b.startOffset || a.jobId - b.jobId);
+      const step = total > 12 ? 2 : 1;
+      const ticks = [];
+      for (let t = 0; t <= total; t += step) ticks.push(`<span style="left:${pct(t)}">${t} s</span>`);
+
+      return `
+        <section class="timeline" aria-label="Timeline of this run">
+          <h3 class="section-title">Timeline</h3>
+          <div class="rows">
+            ${jobs.map((j) => {
+              const r = retriesOf(j);
+              return `
+              <div class="row">
+                <div class="who">Job ${j.jobId} <small>priority ${j.priority}</small></div>
+                <div class="track">
+                  ${waves.map((w) => `<span class="wave-line" style="left:${pct(w)}"></span>`).join('')}
+                  <div class="bar ${j.status}" style="left:${pct(j.startOffset)};width:${pct(j.duration)}"
+                       title="Job ${j.jobId}: ${esc(j.description)}, ${j.status} in ${secs(j.duration)}">
+                    ${r ? `<span class="retries">${r} ${r === 1 ? 'retry' : 'retries'}</span>` : ''}
+                  </div>
+                </div>
+                <div class="dur">${secs(j.duration)}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div class="axis"><span></span><div class="ticks">${ticks.join('')}</div><span></span></div>
+          <div class="legend">
+            <span><i style="background:var(--ok)"></i>Completed</span>
+            <span><i style="background:var(--fail)"></i>Failed</span>
+            <span>Dashed lines mark where each priority wave started</span>
+          </div>
+        </section>`;
+    }
+
+    function renderJobs(run) {
+      return `
+        <section aria-label="Jobs and logs">
+          <h3 class="section-title">Jobs and logs</h3>
+          <div class="jobs">
+            ${run.jobs.map((j) => `
+              <details ${j.status === 'failed' ? 'open' : ''}>
+                <summary>
+                  <span class="state ${j.status}">${j.status === 'failed' ? 'Failed' : 'Completed'}</span>
+                  <span>Job ${j.jobId}: ${esc(j.description)}</span>
+                  <span class="meta">${esc(j.type)}, ${secs(j.duration)}</span>
+                </summary>
+                <ol class="log">
+                  ${j.logs.map((l) => `<li class="${/Error|failed/.test(l) ? 'err' : ''}">${esc(l)}</li>`).join('')}
+                </ol>
+              </details>`).join('')}
+          </div>
+        </section>`;
+    }
+
+    function renderRun(run) {
+      const { completed, failed } = run.summary;
+      detail.innerHTML = `
+        <header>
+          <h2>Run at ${when(run.createdAt)}</h2>
+          <p class="insight">
+            <b>${run.jobs.length} jobs</b>: ${completed} completed, ${failed} failed.
+            ${secs(run.totalJobTime)} of work finished in <b>${secs(run.wallTime)}</b>,
+            because jobs in the same priority wave ran in parallel.
+          </p>
+        </header>
+        ${renderTimeline(run)}
+        ${renderJobs(run)}`;
+    }
+
+    const emptyState = `
+      <div class="empty">
+        <p>No runs saved yet. Run the scheduler to record the first one.</p>
+      </div>`;
+
+    async function selectRun(id) {
+      selectedId = id;
+      runList.querySelectorAll('.run').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === id)));
+      renderRun(await api(`/api/runs/${id}`));
+    }
+
+    async function loadRuns(selectId) {
+      try {
+        const runs = await api('/api/runs');
+        selectedId = selectId || selectedId || (runs[0] && runs[0]._id) || null;
+        renderRunList(runs);
+        if (selectedId) await selectRun(selectedId);
+        else detail.innerHTML = emptyState;
+      } catch (err) {
+        showNotice(err.message);
+        detail.innerHTML = emptyState;
+      }
+    }
+
+    runList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.run');
+      if (btn) selectRun(btn.dataset.id).catch((err) => showNotice(err.message));
+    });
+
+    runBtn.addEventListener('click', async () => {
+      runBtn.disabled = true;
+      runBtn.textContent = 'Running…';
+      showNotice('');
+      try {
+        const run = await api('/api/runs', { method: 'POST' });
+        showNotice(`Run saved: ${run.summary.completed} completed, ${run.summary.failed} failed.`, true);
+        await loadRuns(run._id);
+      } catch (err) {
+        showNotice(err.message);
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run scheduler';
+      }
+    });
+
+    loadRuns();
+  </script>
+</body>
+</html>
